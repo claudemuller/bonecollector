@@ -5,8 +5,7 @@ const pollInitSize = 100
 const (
 	EventDead = iota
 	EventDestroyEntity
-	EventPlayerMoveVert
-	EventPlayerMoveHorz
+	EventPlayerMove
 )
 
 type eventType int
