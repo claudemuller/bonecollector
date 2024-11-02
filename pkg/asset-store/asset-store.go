@@ -1,49 +1,83 @@
 package assetstore
 
 import (
+	"errors"
 	"fmt"
-	"slices"
-	"strings"
+	"log/slog"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
+	"github.com/veandco/go-sdl2/ttf"
 )
 
-type Texture struct {
-	texture *sdl.Texture
-	id      string
+type AssetStore struct {
+	textures map[string]*sdl.Texture
+	fonts    map[string]*ttf.Font
 }
 
-type AssetStore struct {
-	textures []Texture
+func New() *AssetStore {
+	return &AssetStore{
+		textures: make(map[string]*sdl.Texture),
+		fonts:    make(map[string]*ttf.Font),
+	}
 }
 
 func (as *AssetStore) AddTexture(renderer *sdl.Renderer, assetID, filename string) error {
 	surface, err := img.Load(filename)
 	if err != nil {
-		return fmt.Errorf("error adding texture to asset store", err)
+		return fmt.Errorf("error adding texture to asset store: %w", err)
 	}
 
 	tex, err := renderer.CreateTextureFromSurface(surface)
 	if err != nil {
-		return fmt.Errorf("error adding texture to asset store", err)
+		return fmt.Errorf("error adding texture to asset store: %w", err)
 	}
 	surface.Free()
 
-	as.textures = append(as.textures, Texture{
-		texture: tex,
-		id:      assetID,
-	})
+	as.textures[assetID] = tex
 
 	return nil
 }
 
-func (as *AssetStore) GetTexture(assetID string) *Texture {
-	i, found := slices.BinarySearchFunc(as.textures, Texture{id: assetID}, func(a, b Texture) int {
-		return strings.Compare(a.id, b.id)
-	})
-	if found {
-		return &as.textures[i]
+func (as *AssetStore) ClearAssets() {
+	for _, t := range as.textures {
+		if err := t.Destroy(); err != nil {
+			// TODO: return a bunch of possible errors to caller?
+			slog.Error("error destroying texture")
+		}
 	}
+	as.textures = make(map[string]*sdl.Texture)
+
+	for _, f := range as.fonts {
+		f.Close()
+	}
+	as.fonts = make(map[string]*ttf.Font)
+
+}
+
+func (as *AssetStore) GetTexture(assetID string) (*sdl.Texture, error) {
+	tex, ok := as.textures[assetID]
+	if !ok {
+		return nil, errors.New("texture not found")
+	}
+	return tex, nil
+}
+
+func (as *AssetStore) AddFont(assetID, path string, size int) error {
+	font, err := ttf.OpenFont(path, size)
+	if err != nil {
+		return fmt.Errorf("error opening font: %w", err)
+	}
+
+	as.fonts[assetID] = font
+
 	return nil
+}
+
+func (as *AssetStore) GetFont(assetID string) (*ttf.Font, error) {
+	font, ok := as.fonts[assetID]
+	if !ok {
+		return nil, errors.New("font not found")
+	}
+	return font, nil
 }

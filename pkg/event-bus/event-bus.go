@@ -1,5 +1,7 @@
 package eventbus
 
+import "log/slog"
+
 const pollInitSize = 100
 
 const (
@@ -23,6 +25,7 @@ type EventBus struct {
 }
 
 func New() EventBus {
+	slog.Info("creating event bus")
 	return EventBus{
 		handlers: make(map[eventType][]HandlerFn),
 		poll:     make([]Event, pollInitSize),

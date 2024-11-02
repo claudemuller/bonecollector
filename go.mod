@@ -1,4 +1,4 @@
-module sdl
+module bonecollector
 
 go 1.23.0
 

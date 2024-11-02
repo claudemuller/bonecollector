@@ -7,8 +7,11 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 
-	assetstore "sdl/pkg/asset-store"
-	eventbus "sdl/pkg/event-bus"
+	assetstore "bonecollector/pkg/asset-store"
+	"bonecollector/pkg/ecs"
+	"bonecollector/pkg/entity"
+	eventbus "bonecollector/pkg/event-bus"
+	"bonecollector/pkg/system"
 )
 
 type graphics struct {
@@ -21,14 +24,15 @@ type graphics struct {
 }
 
 type Engine struct {
-	graphics   graphics
-	eventbus   eventbus.EventBus
-	assetStore assetstore.AssetStore
-	isRunning  bool
-	isDebug    bool
-	isPaused   bool
-	mapWidth   int
-	mapHeight  int
+	graphics      graphics
+	eventbus      eventbus.EventBus
+	assetStore    *assetstore.AssetStore
+	entityManager ecs.EntityManager
+	isRunning     bool
+	isDebug       bool
+	isPaused      bool
+	mapWidth      int
+	mapHeight     int
 }
 
 const (
@@ -68,8 +72,9 @@ func New(title string, winWidth, winHeight int32) (Engine, error) {
 				H: winHeight,
 			},
 		},
-		eventbus:   eventbus.New(),
-		assetStore: assetstore.AssetStore{},
+		eventbus:      eventbus.New(),
+		assetStore:    assetstore.New(),
+		entityManager: ecs.New(),
 	}
 
 	return e, nil
@@ -89,8 +94,25 @@ func (e *Engine) Run() {
 }
 
 func (e *Engine) setup() {
+	// Load textures
+	if err := e.assetStore.AddTexture(e.graphics.renderer, "test", "assets/tank.png"); err != nil {
+		slog.Error("error loading texture", "asset-id", "test", "path", "assets/tank.png")
+	}
+
+	// Load Fonts
+	// if err := e.assetStore.AddFont( "test", "assets/tank.png", 20); err != nil {
+	// 	slog.Error("error loading font", "asset-id", "test", "path", "assets/tank.png");
+	// }
+
 	// Add movement system
-	// and the rest...
+	e.entityManager.AddSystem(system.MovementSystem)
+	e.entityManager.AddSystem(system.RenderSystem)
+
+	// Load entities
+	var ent entity.Entity
+	e.entityManager.TagEntity(&ent, "tank")
+	e.entityManager.GroupEntity(&ent, "player")
+	e.entityManager.AddEntityTransformComponent(&ent, 50, 50)
 
 	// e.assetStore.AddTexture(e.graphics.renderer, "tilemap", "./assets/tilemaps/jungle.png")
 	//
@@ -131,9 +153,13 @@ func (e *Engine) processInput() {
 				e.isRunning = false
 			}
 
-			// if ev.Keysym.Sym == sdl.K_F1 {
-			// 	e.isDebug != e.isDebug
-			// }
+			if ev.Keysym.Sym == sdl.K_F1 {
+				if e.isDebug {
+					e.isDebug = false
+				} else {
+					e.isDebug = true
+				}
+			}
 
 			// if ev.Keysym.Sym == sdl.K_KP_P {
 			// 	e.isPaused != e.isPaused
@@ -162,9 +188,9 @@ func (e *Engine) update() {
 		return
 	}
 
-	e.entityManager.GetSystem().SubscribeToEvents(e.eventbus)
+	// e.entityManager.GetSystem().SubscribeToEvents(e.eventbus)
 
-	e.entityManager.GetSystem().Update(delta)
+	e.entityManager.Update(delta)
 }
 
 func (e *Engine) render() {
@@ -177,7 +203,7 @@ func (e *Engine) render() {
 		slog.Error("render clear", "error", err)
 	}
 
-	e.entityManager.GetSystem().Update(e.graphics.renderer, e.graphics.camera, e.assetStore)
+	e.entityManager.Render(e.graphics.renderer, e.graphics.camera, e.assetStore)
 
 	e.graphics.renderer.Present()
 }

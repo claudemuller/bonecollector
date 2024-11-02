@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"os"
 
-	engine "sdl/pkg/engine"
+	engine "bonecollector/pkg/engine"
 )
 
 func main() {
